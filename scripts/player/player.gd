@@ -79,7 +79,6 @@ var check_terrian_timer:Timer
 @onready var collision: CollisionShape3D = $CollisionShape3D
 @onready var floor_ray: RayCast3D = $floor
 @onready var camera_shake: CameraShake3DNode = $RotationRoot/Head/CameraShake3DNode
-@onready var terrain_interation:TerrainInteraction = $Hands/TerrainInteraction
 @onready var drop_node: Node3D = $RotationRoot/Head/Camera3D/Drop_node
 @onready var camera = $RotationRoot/Head/Camera3D
 @onready var ray = $RotationRoot/Head/Camera3D/RayCast3D
@@ -123,9 +122,6 @@ func _ready() -> void:
 	_add_keybindings()
 	
 
-func _exit_tree():
-	save_data()
-	
 func _update_tp_fp_visibility() -> void:
 	if is_multiplayer_authority():
 		item_holder.show()

@@ -12,7 +12,7 @@ var pause_menu
 var settings
 var slot_manager
 var creature_spawner:MultiplayerSpawner
-var player_spawner:MultiplayerSpawner
+var player_spawner:Node
 var object_spawner:MultiplayerSpawner
 var light_container
 var sound_container

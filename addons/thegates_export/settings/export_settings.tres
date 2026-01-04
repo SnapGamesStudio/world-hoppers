@@ -5,9 +5,9 @@
 [resource]
 script = ExtResource("1_4i6s3")
 title = "world-hoppers"
-description = ""
-icon = ""
-image = ""
+description = " a game"
+icon = "res://assets/textures/items/Leaf.png"
+image = "res://assets/textures/Screenshot (881).png"
 discoverable = false
 advanced_settings = true
 export_locally = true

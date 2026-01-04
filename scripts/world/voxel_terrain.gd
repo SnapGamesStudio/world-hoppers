@@ -42,9 +42,8 @@ func _ready() -> void:
 	voxel_tool = get_voxel_tool()
 	plants = [mesher.library.get_model_index_default("tall_grass"),mesher.library.get_model_index_default("fern"),mesher.library.get_model_index_default("flower"),mesher.library.get_model_index_default("reeds"),mesher.library.get_model_index_default("tall_flower"),mesher.library.get_model_index_default("wheat"),mesher.library.get_model_index_default("wheat_seed")]
 
-@rpc("reliable","call_local","any_peer")
 func _place_block_server(type: StringName, voxel_position: Vector3, player_pos: Vector3 = Vector3.ZERO) -> void:
-	#print("place",type)
+	print("place",type)
 	var item = item_library.get_item(type)
 	if item:
 		if item.utility:
@@ -56,10 +55,10 @@ func _place_block_server(type: StringName, voxel_position: Vector3, player_pos: 
 	voxel_tool.channel = VoxelBuffer.CHANNEL_TYPE
 	
 	if item.light:
-		spawn_light.rpc(voxel_position,item.light_colour,item.light_energy,item.light_size)
+		spawn_light(voxel_position,item.light_colour,item.light_energy,item.light_size)
 	
 	if item.has_sound:
-		spawn_sound.rpc(voxel_position,item.sound.get_path())
+		spawn_sound(voxel_position,item.sound.get_path())
 	
 	if item.rotatable:
 		## make the block rotation towards the player when placed
@@ -68,23 +67,21 @@ func _place_block_server(type: StringName, voxel_position: Vector3, player_pos: 
 		voxel_tool.value = mesher.library.get_model_index_default(type)
 	
 	voxel_tool.do_point(voxel_position)
-	
-	
-@rpc("reliable","call_local","any_peer")
+
 func _break_block_server(voxel_position: Vector3) -> void:
+	
 	voxel_tool.channel = VoxelBuffer.CHANNEL_TYPE
 	voxel_tool.value = AIR_TYPE
 	
-	#print("break")
-	var above_voxel:int = voxel_tool.get_voxel(voxel_position + Vector3(0,1,0))
-	
 	var voxel: int = voxel_tool.get_voxel(voxel_position)
+	print("break ",voxel)
+	voxel_tool.do_point(voxel_position)
+	
+	var above_voxel:int = voxel_tool.get_voxel(voxel_position + Vector3(0,1,0))
 	
 	if plants.has(above_voxel):
 		voxel_tool.do_point(voxel_position + Vector3(0,1,0))
 		
-	voxel_tool.do_point(voxel_position)
-	
 	var array = mesher.library.get_type_name_and_attributes_from_model_index(voxel)
 	
 	if array[0] != "air":
@@ -92,19 +89,21 @@ func _break_block_server(voxel_position: Vector3) -> void:
 		
 		# if no other drop items drop itself
 		if item.drop_items.is_empty():
-			send_item.rpc_id(multiplayer.get_remote_sender_id(),array[0])
+			send_item(array[0])
+			print(array[0])
 			
 		# can drop other items not only it self
-		for drop_item in item.drop_items:
-			send_item.rpc_id(multiplayer.get_remote_sender_id(),drop_item)
+		else:
+			for drop_item in item.drop_items:
+				send_item(drop_item)
 		
 		if item.light:
-			destory_light.rpc(voxel_position)
+			destory_light(voxel_position)
 			
 		if item.has_sound:
-			destory_sound.rpc(voxel_position)
+			destory_sound(voxel_position)
 		
-		Helper.sound_manager.play_sound.rpc(array[0],voxel_position,"break")
+		Helper.sound_manager.play_sound(array[0],voxel_position,"break")
 		
 		if item.utility != null:
 			if item.utility.has_ui:
@@ -123,8 +122,7 @@ func _break_block_server(voxel_position: Vector3) -> void:
 		if water(nv):
 			var water_m = get_tree().get_first_node_in_group("Water Updater")
 			water_m.schedule(npos)
-		
-@rpc("any_peer","call_local")
+			
 func spawn_light(voxel_position: Vector3,color:Color,energy:float, size:float = 5.0) -> void:
 	var light = light_.instantiate()
 	light.position = voxel_position + Vector3(0.5,0.5,0.5)
@@ -134,7 +132,6 @@ func spawn_light(voxel_position: Vector3,color:Color,energy:float, size:float = 
 	var light_container = Helper.light_container
 	light_container.add_child(light)
 
-@rpc("any_peer","call_local")
 func destory_light(voxel_position:Vector3):
 	var find_pos = voxel_position + Vector3(0.5,0.5,0.5)
 	var light_container = Helper.light_container
@@ -143,7 +140,6 @@ func destory_light(voxel_position:Vector3):
 		if light.global_position == find_pos:
 			light.queue_free()
 
-@rpc("any_peer","call_local")
 func destory_sound(voxel_position:Vector3):
 	var find_pos = voxel_position
 	var sound_container = Helper.sound_container
@@ -151,7 +147,6 @@ func destory_sound(voxel_position:Vector3):
 		if sound.position == find_pos:
 			sound.queue_free()
 
-@rpc("any_peer","call_local")
 func spawn_sound(voxel_position:Vector3, sound:String) -> void:
 	var _sound = sound_.instantiate() as AudioStreamPlayer3D
 	_sound.stream = load(sound)
@@ -175,14 +170,13 @@ func get_direction(player_pos:Vector3, place_pos:Vector3):
 		else:
 			return VoxelBlockyAttributeDirection.DIR_POSITIVE_Z
 
-@rpc("any_peer","call_remote","reliable")
 func send_item(type: StringName) -> void:
 	var slot_manager = Helper.slot_manager
 	## if the player is holding a tool it will be damaged
-	if slot_manager.selected_slot != null:
-		if slot_manager.selected_slot.item != null:
-			if slot_manager.selected_slot.item is ItemTool:
-				slot_manager.selected_slot.used()
+	if slot_manager.current_hotbar_slot_selected != null:
+		if slot_manager.current_hotbar_slot_selected.item != null:
+			if slot_manager.current_hotbar_slot_selected.item is ItemTool:
+				slot_manager.current_hotbar_slot_selected.used()
 						
 	## gives the broken item to the player
 	var item = item_library.get_item(type)
@@ -198,11 +192,14 @@ func water(v:int):
 		_is_water = true
 	return _is_water
 
-@rpc("any_peer","call_local","reliable")
 func get_voxel_meta(voxel_position:Vector3,caller_path):
 	var caller = get_tree().root.get_node(caller_path)
 	if caller:
-		var meta = voxel_tool.get_voxel_metadata(voxel_position)
-		#print("meta ", meta)
-		#callable.call()
-		caller.rpc_id(multiplayer.get_remote_sender_id(),"receive_meta",meta,voxel_tool.get_voxel(voxel_position),voxel_position)
+		var metadata = voxel_tool.get_voxel_metadata(voxel_position)
+		var voxel_id = voxel_tool.get_voxel(voxel_position)
+		if caller.has_method("receive_meta"):
+			print(metadata)
+			caller.receive_meta(metadata,voxel_id,voxel_position)
+
+func set_voxel_meta(voxel_position:Vector3,metadata):
+	voxel_tool.set_voxel_metadata(voxel_position,metadata)

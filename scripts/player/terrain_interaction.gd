@@ -17,7 +17,7 @@ var light_ = preload("res://scenes/other/block_light.tscn")
 var sound_ = preload("res://scenes/other/block_sound.tscn")
 
 var plants: Array[int]
-var terrain: Terrian
+var terrain
 var voxel_tool: VoxelTool
 
 var block_is_inside_character: bool
@@ -65,11 +65,9 @@ func _ready() -> void:
 	
 	#plants = [voxel_blocky_type_library.get_model_index_default("tall_grass"),voxel_blocky_type_library.get_model_index_default("fern"),voxel_blocky_type_library.get_model_index_default("flower"),voxel_blocky_type_library.get_model_index_default("reeds"),voxel_blocky_type_library.get_model_index_default("tall_flower"),voxel_blocky_type_library.get_model_index_default("wheat"),voxel_blocky_type_library.get_model_index_default("wheat_seed")]
 
-	if is_multiplayer_authority() or Connection.is_server():
-		terrain = Helper.terrian
-		voxel_tool = terrain.get_voxel_tool()
-	else:
-		block.visible = false
+	terrain = get_tree().get_first_node_in_group("VoxelTerrain")
+	voxel_tool = terrain.get_voxel_tool()
+	#block.visible = false
 	
 	mine_timer = Timer.new()
 	mine_timer.one_shot = true
@@ -132,7 +130,9 @@ func _process(delta: float) -> void:
 						
 						if break_time <= 0:
 							CrackOverlay.stop()
-							terrain.rpc_id(1,"_break_block_server",last_hit.position)
+							
+							#remove + items
+							terrain._break_block_server(last_hit.position)
 						
 						CrackOverlay.start_break(break_time)
 						
@@ -149,7 +149,7 @@ func _process(delta: float) -> void:
 					
 					Helper.sound_manager.play_sound(Globals.current_block,last_hit.previous_position)
 					var player_pos = get_parent().global_position
-					terrain.rpc_id(1,"_place_block_server",Globals.current_block,last_hit.previous_position,player_pos)
+					terrain._place_block_server(Globals.current_block,last_hit.previous_position,player_pos)
 					Globals.remove_item_from_hotbar.emit()
 			
 		var type = get_type()
@@ -167,7 +167,8 @@ func _break_block():
 		if Input.is_action_pressed("Mine"):
 			#print("break_overlay")
 			CrackOverlay.stop()
-			terrain.rpc_id(1,"_break_block_server",last_hit.position)
+			#server remove + items
+			terrain._break_block_server(last_hit.position)
 	
 func can_place() -> bool:
 	return last_hit != null and !block_is_inside_character and Globals.can_build
@@ -182,7 +183,6 @@ func get_type() -> StringName:
 	var array: Array = voxel_blocky_type_library.get_type_name_and_attributes_from_model_index(voxel)
 	return array[0]
 
-@rpc("any_peer","call_local")
 
 	
 func _on_Area_body_entered(_body: Node3D) -> void:
@@ -192,12 +192,11 @@ func _on_Area_body_entered(_body: Node3D) -> void:
 func _on_Area_body_exited(_body: Node3D) -> void:
 	block_is_inside_character = false
 
-@rpc("any_peer","call_local")
 func open_portal_ui(id: Vector3) -> void:
 	Globals.open_portal_url.emit(id)
 	pass
 
-@rpc("any_peer","call_local")
+
 func remove_spawn_point(pos: Vector3) -> void:
 	var player = get_parent().get_parent() as Player
 	if player.spawn_position == pos + Vector3(0,1,0):
@@ -232,16 +231,15 @@ func interaction() -> void:
 	if item != null:
 		if item.utility != null:
 			if item.utility.has_ui:
-				terrain.rpc_id(1,"get_voxel_meta",last_hit.position,self.get_path())
-				#get_voxel_meta.rp
-				#terrain_interaction.rpc_id(1,"get_voxel_meta",terrain_interaction.last_hit.position)
+				print("ui")
+				terrain.get_voxel_meta(last_hit.position,self.get_path())
 				
 			if item.utility.spawn_point:
 				get_parent().spawn_position = last_hit.position + Vector3i(0,1,0)
 				print_debug("spawn point set ",get_parent().spawn_position)
 			
 			if item.utility.portal:
-				terrain.rpc_id(1,"get_voxel_meta",last_hit.position,self.get_path())
+				terrain.get_voxel_meta(last_hit.position,self.get_path())
 
 @rpc("any_peer","call_local")
 func receive_meta(meta_data, type:int, voxel_position:Vector3):
@@ -266,4 +264,5 @@ func receive_meta(meta_data, type:int, voxel_position:Vector3):
 		
 	if item_name == "blueprint_station":
 		if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED: return
+		print(voxel_position)
 		Globals.open_ui.emit(item.utility.ui_scene_path,voxel_position,null)

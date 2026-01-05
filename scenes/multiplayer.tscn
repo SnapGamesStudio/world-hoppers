@@ -912,8 +912,10 @@ background_texture = SubResource("AtlasTexture_fhmo7")
 
 [node name="Inventory" parent="Game/Player UI/Inventory_UI/Panel/MarginContainer/VBoxContainer/Inventory_Array" groups=["Main Inventory", "ui_savable"] instance=ExtResource("32_2pbse")]
 layout_mode = 2
-items_library = SubResource("Resource_c0ten")
 sync = false
+metadata = true
+id = Vector3(0, 0, 0)
+items_library = SubResource("Resource_c0ten")
 
 [node name="Label" type="Label" parent="Game/Player UI/Inventory_UI/Panel/MarginContainer/VBoxContainer"]
 layout_mode = 2
